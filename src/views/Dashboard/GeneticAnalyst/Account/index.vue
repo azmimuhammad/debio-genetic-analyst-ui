@@ -399,6 +399,7 @@
     ConfirmationDialog(
       :show="showUnstakeDialog"
       :txWeight="unstakeTxWeight"
+      :loading="isStakingLoading"
       title="Unstake"
       btnMessage="Unstake"
       message="Your account will be deactivated until you stake again and your staking amount will be returned after 144 hours or 6 days"
@@ -414,10 +415,12 @@ import cryptWorker from "@/common/lib/ipfs/crypt-worker"
 import CryptoJS from "crypto-js"
 import { u8aToHex } from "@polkadot/util"
 import { queryGeneticAnalystByAccountId } from "@debionetwork/polkadot-provider"
-import { getAddElectronicMedicalRecordFee } from "@debionetwork/polkadot-provider"
-import { updateGeneticAnalyst,  updateGeneticAnalystAvailabilityStatus, unstakeGeneticAnalyst } from "@debionetwork/polkadot-provider"
+// import { getAddElectronicMedicalRecordFee } from "@debionetwork/polkadot-provider"
+// import { updateGeneticAnalyst,  updateGeneticAnalystAvailabilityStatus, unstakeGeneticAnalyst } from "@debionetwork/polkadot-provider"
+import { updateGeneticAnalyst,  updateGeneticAnalystAvailabilityStatus } from "@debionetwork/polkadot-provider"
 import { updateQualification } from "@debionetwork/polkadot-provider"
 import { queryGeneticAnalystQualificationsByHashId } from "@debionetwork/polkadot-provider"
+import { unstakeGeneticAnalyst, unstakeGeneticAnalystFee, updateGeneticAnalystFee } from "@/common/lib/polkadot-provider/command/genetic-analyst"
 import { upload } from "@/common/lib/ipfs"
 import { uploadFile, getFileUrl } from "@/common/lib/pinata-proxy"
 import { getLocations, getSpecializationCategory } from "@/common/lib/api"
@@ -467,6 +470,7 @@ export default {
     clearFile: false,
     loadingDoc: false,
     isLoading: false,
+    isStakingLoading: false,
     orderLists: [],
     profile: {
       profileImage: "",
@@ -588,13 +592,15 @@ export default {
 
   async created() {
     if (this.mnemonicData) this.initialDataKey()
-    await this.getCountries()
-    await this.getSecialization()
+    await this.getUnstakeFee()
     await this.getAccountData()
+    await this.getUpdateFee()
   },
 
-  // async mounted() {
-  // },
+  async mounted() {
+    await this.getCountries()
+    await this.getSpecialization()
+  },
 
   methods: {
     initialDataKey() {
@@ -609,10 +615,42 @@ export default {
       this.countries = data;
     },
 
-    async getSecialization() {
+    async getSpecialization() {
       const categories = await getSpecializationCategory()
 
       this.categories = categories;
+    },
+
+    async getUnstakeFee() {
+      const txWeight = await unstakeGeneticAnalystFee(this.api, this.wallet)
+      this.unstakeTxWeight = `${this.web3.utils.fromWei(String(txWeight.partialFee), "ether")}`
+    },
+
+    async getUpdateFee() {
+      const {
+        profileImage,
+        firstName,
+        lastName,
+        gender,
+        dateOfBirth,
+        email,
+        phoneNumber,
+        specialization
+      } = this.profile
+      this.txWeight = "Calculating..."
+
+      const getTxWeight = await updateGeneticAnalystFee(this.api, this.wallet, {
+        boxPublicKey: this.publicKey,
+        firstName,
+        lastName,
+        gender,
+        dateOfBirth,
+        email,
+        phoneNumber,
+        specialization,
+        profileImage
+      })
+      this.txWeight = `${this.web3.utils.fromWei(String(getTxWeight.partialFee), "ether")}`
     },
 
     async getAccountData() {
@@ -656,15 +694,9 @@ export default {
             this.profile.certification = qualification.info.certification
           }
         }
+        // const txWeight = await getAddElectronicMedicalRecordFee(this.api, this.wallet, this.profile)
 
-        this.txWeight = "Calculating..."
-
-        const txWeight = await getAddElectronicMedicalRecordFee(this.api, this.wallet, this.profile)
-        const unstakeTxWeight = await getAddElectronicMedicalRecordFee(this.api, this.wallet, this.stakingStatus)
-
-
-        this.txWeight = `${this.web3.utils.fromWei(String(txWeight.partialFee), "ether")}`
-        this.unstakeTxWeight = `${this.web3.utils.fromWei(String(unstakeTxWeight.partialFee), "ether")}`
+        // this.txWeight = `${this.web3.utils.fromWei(String(txWeight.partialFee), "ether")}`
       }
     },
 
@@ -765,12 +797,17 @@ export default {
     },
 
     async handleUnstake() {
-      try {
-        await unstakeGeneticAnalyst(this.api, this.wallet)
-        this.isSuccess = true
-      } catch (error) {
-        console.error(error)
-      }
+      // this.isStakingLoading = true
+
+      await unstakeGeneticAnalyst(this.api, this.wallet)
+      // console.log("unstake", unstake)
+      // try {
+      //   this.isSuccess = true
+      // } catch (error) {
+      //   console.error(error)
+      // }
+
+      // this.isStakingLoading = false
     },
 
     addExperience(){

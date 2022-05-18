@@ -36,6 +36,8 @@
             width="280px"
             height="35px"
             @click="onSubmit"
+            :loading="loading"
+            :disabled="loading"
           ) {{ btnMessage }}
   
       v-progress-linear(
